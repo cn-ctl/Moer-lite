@@ -7,7 +7,38 @@ bool Cylinder::rayIntersectShape(Ray &ray, int *primID, float *u, float *v) cons
     //* 3.检验交点是否在圆柱范围内
     //* 4.更新ray的tFar,减少光线和其他物体的相交计算次数
     //* Write your code here.
-    return false;
+    auto&& Tray = transform.inverseRay(ray);
+    auto && A = Tray.direction[0]*Tray.direction[0]+Tray.direction[1]*Tray.direction[1],
+        B = 2.0f*(Tray.origin[0]*Tray.direction[0]+Tray.origin[1]*Tray.direction[1]),
+        C = Tray.origin[0]*Tray.origin[0] + Tray.origin[1]*Tray.origin[1] - radius*radius;
+    float t0, t1;
+    if(!Quadratic(A,B,C,&t0,&t1))
+        return false;
+
+    auto check = [&](float t)->bool{
+        if(t<Tray.tNear||t>Tray.tFar)
+            return false;
+
+        auto&& point = Tray.at(t);
+        if(point[2]<0||point[2]>height)
+            return false;
+        
+        float phi = atan2(point[1],point[0]);
+        if(phi < 0)
+            phi += 2*PI;
+        if(phi > phiMax)
+            return false;
+
+        ray.tFar = t;
+        *u = phi/phiMax;
+        *v = point[2]/height;
+        *primID = 0;
+        return true;
+    };
+    if(!check(t0))
+        if(!check(t1))
+            return false;
+    return true;
 }
 
 void Cylinder::fillIntersection(float distance, int primID, float u, float v, Intersection *intersection) const {
@@ -17,7 +48,10 @@ void Cylinder::fillIntersection(float distance, int primID, float u, float v, In
     //* 2.位置信息可以根据uv计算出，同样需要变换
     //* Write your code here.
     /// ----------------------------------------------------
+    auto phi = u*phiMax;
+    intersection->normal = transform.toWorld(Vector3f{(float)cos(phi),(float)sin(phi),0.f});
 
+    intersection->position = transform.toWorld(Point3f{(float)cos(phi)*radius,(float)sin(phi)*radius,v*height});
 
     intersection->shape = this;
     intersection->distance = distance;
